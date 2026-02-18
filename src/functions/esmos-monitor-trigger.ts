@@ -37,14 +37,7 @@ export async function checkVmAndRunTests(myTimer: Timer, context: InvocationCont
       context.info("VM is running. Triggering Container App Job...");
       logger.info("VM is running. Triggering Container App Job...");
 
-      await caClient.jobs.beginStart(acaResourceGroup, jobName, {
-        template: {
-          containers: [{
-            image: process.env.CONTAINER_IMAGE_URL!,
-            name: jobName
-          }]
-        }
-      });
+      await caClient.jobs.beginStart(acaResourceGroup, jobName)
       context.info("Job successfully triggered.");
       logger.info('Job successfully triggered.');
     } else {
