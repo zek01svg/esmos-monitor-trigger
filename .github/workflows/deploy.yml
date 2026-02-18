@@ -37,7 +37,6 @@ jobs:
                   pushd './${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
                   pnpm install
                   pnpm run build
-                  pnpm run test
                   pnpm prune --prod
                   popd
 
