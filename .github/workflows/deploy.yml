@@ -8,7 +8,7 @@ on:
 
 env:
     AZURE_FUNCTIONAPP_PACKAGE_PATH: "."
-    NODE_VERSION: "20.x"
+    NODE_VERSION: "22.x"
 
 jobs:
     build:
@@ -20,19 +20,25 @@ jobs:
             - name: Checkout GitHub Action
               uses: actions/checkout@v4
 
+            - name: Install pnpm
+              uses: pnpm/action-setup@v4
+              with:
+                  version: 10.20.0
+
             - name: Setup Node ${{ env.NODE_VERSION }} Environment
-              uses: actions/setup-node@v3
+              uses: actions/setup-node@v4
               with:
                   node-version: ${{ env.NODE_VERSION }}
+                  cache: "pnpm"
 
-            - name: "Resolve Project Dependencies Using Npm"
+            - name: "Resolve Project Dependencies Using pnpm"
               shell: bash
               run: |
                   pushd './${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
-                  npm ci
-                  npm run build --if-present
-                  npm run test --if-present
-                  npm prune --production
+                  pnpm install
+                  pnpm run build --if-present
+                  pnpm run test --if-present
+                  pnpm prune --prod
                   popd
 
             - name: "Zip artifact for deployment"
