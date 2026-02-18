@@ -8,11 +8,12 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-/*
-This Azure Function is triggered every 10 minutes by a timer.
-It checks the status of a the ESMOS production deployment and triggers a container app job if the VM is running.
-*/
 
+/**
+ * Timer-triggered function that monitors the ESMOS production VM status.
+ * It verifies if the VM is in a 'running' state and, if so, initiates a Container App Job.
+ * This ensures that automated tests or tasks are only executed when the environment is active.
+ */
 export async function checkVmAndRunTests(myTimer: Timer, context: InvocationContext): Promise<void> {
   const subscriptionId = process.env.AZURE_SUBSCRIPTION_ID!;
   const vmResourceGroup = process.env.AZURE_VM_RESOURCE_GROUP!;
