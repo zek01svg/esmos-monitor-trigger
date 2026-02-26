@@ -4,6 +4,7 @@ import { ContainerAppsAPIClient } from "@azure/arm-appcontainers";
 import { DefaultAzureCredential } from "@azure/identity";
 import logger from "../lib/pino";
 import initSentry from "../lib/sentry";
+import { checkSiteStatus } from "../utils/check-site-status";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -35,12 +36,19 @@ export async function checkVmAndRunTests(myTimer: Timer, context: InvocationCont
     logger.info(`VM Status: ${powerState?.displayStatus}`);
 
     if (powerState?.code === 'PowerState/running') {
-      context.info("VM is running. Triggering Container App Job...");
-      logger.info("VM is running. Triggering Container App Job...");
+      const isSiteUp = await checkSiteStatus();
 
-      await caClient.jobs.beginStart(acaResourceGroup, jobName)
-      context.info("Job successfully triggered.");
-      logger.info('Job successfully triggered.');
+      if (isSiteUp) {
+        context.info("VM is running and site is up. Triggering Container App Job...");
+        logger.info("VM is running and site is up. Triggering Container App Job...");
+
+        await caClient.jobs.beginStart(acaResourceGroup, jobName)
+        context.info("Job successfully triggered.");
+        logger.info('Job successfully triggered.');
+      } else {
+        context.info("VM is running but site is down. Skipping execution.");
+        logger.info('VM is running but site is down. Skipping execution.');
+      }
     } else {
       context.info("VM is NOT running. Skipping execution.");
       logger.info('VM is not running. Skipping execution.');
