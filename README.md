@@ -11,8 +11,9 @@ The [ESMOS Monitor](https://github.com/zek01svg/esmos-monitor) Container App Job
 ESMOS Monitor Trigger solves this by acting as a **conditional gate**. On every tick of its 10-minute timer, it:
 
 1. Queries the **Azure Compute API** for the VM's current power state.
-2. If the VM is `Running`, starts the Container App Job via the **Azure Container Apps API**.
-3. If the VM is stopped/deallocated, skips execution and logs the decision.
+2. If the VM is `Running`, checks the HTTP status of the target ESMOS application.
+3. If the site is reachable, starts the Container App Job via the **Azure Container Apps API**.
+4. If the VM is stopped/deallocated or the site is unreachable, skips execution and logs the decision.
 
 This keeps the scheduling and execution layers **fully decoupled**—the Function knows nothing about Playwright, and the Container App Job knows nothing about VM status.
 
@@ -28,7 +29,12 @@ This keeps the scheduling and execution layers **fully decoupled**—the Functio
 │             │ PowerState/running?   │
 │             ▼                       │
 │  ┌───────────────────────────────┐  │
-│  │  2. Start Container App Job   │  │
+│  │  2. Check site HTTP status    │  │
+│  └──────────┬────────────────────┘  │
+│             │ Site is reachable?    │
+│             ▼                       │
+│  ┌───────────────────────────────┐  │
+│  │  3. Start Container App Job   │  │
 │  │     (Azure Container Apps SDK)│  │
 │  └───────────────────────────────┘  │
 └──────────────┬──────────────────────┘
@@ -44,7 +50,7 @@ The two components are owned by separate repositories and deployed independently
 
 | Layer         | Component               | Repository                                                                        | Purpose                                                                          |
 | ------------- | ----------------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| **Trigger**   | Azure Function (Timer)  | [esmos-monitor-trigger](https://github.com/zek01svg/esmos-monitor-trigger) ← this | Checks VM status, conditionally starts the job. No test logic.                   |
+| **Trigger**   | Azure Function (Timer)  | [esmos-monitor-trigger](https://github.com/zek01svg/esmos-monitor-trigger) ← this | Checks VM status and site health, conditionally starts the job. No test logic.   |
 | **Execution** | Azure Container App Job | [esmos-monitor](https://github.com/zek01svg/esmos-monitor)                        | Runs Playwright tests, reports errors, uploads screenshots. No scheduling logic. |
 
 ## 🛠️ Tech Stack
@@ -95,6 +101,7 @@ Configure `local.settings.json` with the required values:
 | `AZURE_VM_NAME`            | Name of the production VM to monitor                             |
 | `AZURE_ACA_RESOURCE_GROUP` | Resource group of the Container App Job                          |
 | `AZURE_ACA_JOB_NAME`       | Name of the Azure Container App Job to trigger                   |
+| `ESMOS_URL`                | URL of the deployed ESMOS application to monitor                 |
 
 **Observability**
 
@@ -126,7 +133,7 @@ pnpm run start
 The timer trigger fires every 10 minutes. For local testing, the function is also invocable via an HTTP `POST` to the admin endpoint:
 
 ```bash
-curl -X POST http://localhost:7071/admin/functions/CheckVmAndTriggerJob
+curl -v -X POST http://localhost:7071/admin/functions/CheckVmAndTriggerJob -H "Content-Type: application/json" -d "{}"
 ```
 
 ## 📡 Monitoring & Observability
@@ -134,7 +141,8 @@ curl -X POST http://localhost:7071/admin/functions/CheckVmAndTriggerJob
 Every invocation produces structured logs through both the Azure Functions context logger and Pino:
 
 ```
-Timer fired → VM Status: Running → Job successfully triggered.
+Timer fired → VM Status: Running → Checking site status... → Job successfully triggered.
+Timer fired → VM Status: Running → Checking site status... → VM is running but site is down. Skipping execution.
 Timer fired → VM Status: VM deallocated → Skipping execution.
 ```
 
